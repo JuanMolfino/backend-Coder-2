@@ -1,4 +1,4 @@
-# Curso Programacion Backend - Proyecto Final
+# Curso Programacion Backend -2
 
 Sistema de ecommerce con Node.js, Express, MongoDB y Socket.io.
 
@@ -50,8 +50,6 @@ mongodb://127.0.0.1:27017/entrega-final
 │   ├── app.js
 │   ├── websocket.js
 │   ├── dao/
-│   │   ├── productDBManager.js
-│   │   ├── productFSManager.js
 │   │   ├── cartDBManager.js
 │   │   ├── cartFSManager.js
 │   │   └── models/
