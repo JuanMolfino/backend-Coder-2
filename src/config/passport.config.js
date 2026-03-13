@@ -3,12 +3,13 @@ import local from "passport-local";
 import passportJWT from "passport-jwt";
 import bcrypt from "bcrypt";
 import userModel from "../dao/models/userModel.js";
+import { env } from "./env.js";
 
 const LocalStrategy = local.Strategy;
 const JWTStrategy = passportJWT.Strategy;
 const ExtractJWT = passportJWT.ExtractJwt;
 
-const JWT_SECRET = process.env.JWT_SECRET || "secretKey";
+const JWT_SECRET = env.jwtSecret;
 
 // Extrae el JWT desde la cookie 
 const cookieExtractor = (req) => {

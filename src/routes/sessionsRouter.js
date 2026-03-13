@@ -5,9 +5,13 @@ import passport from "passport";
 import userModel from "../dao/models/userModel.js";
 import { cartDBManager } from "../dao/cartDBManager.js";
 import { productDBManager } from "../dao/productDBManager.js";
+import { toUserCurrentDTO } from "../dtos/userCurrent.dto.js";
+import { env } from "../config/env.js";
+import { PasswordResetService } from "../services/passwordReset.service.js";
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || "secretKey";
+const JWT_SECRET = env.jwtSecret;
+const passwordResetService = new PasswordResetService();
 
 // Register
 router.post("/register", async (req, res) => {
@@ -73,7 +77,32 @@ router.post("/login", async (req, res) => {
 
 router.get("/current", passport.authenticate("current", { session: false }), (req, res) => {
     if (!req.user) return res.status(401).json({ status: "error", message: "Unauthorized" });
-    return res.json({ status: "success", payload: req.user });
+    return res.json({ status: "success", payload: toUserCurrentDTO(req.user) });
+});
+
+// Request password reset
+router.post("/forgot-password", async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ status: "error", message: "Missing fields" });
+
+        await passwordResetService.requestReset(email);
+        return res.json({ status: "success", message: "If the user exists, an email was sent" });
+    } catch (error) {
+        return res.status(500).json({ status: "error", message: error.message });
+    }
+});
+
+// Reset password 
+router.post("/reset-password", async (req, res) => {
+    try {
+        const token = req.query.token || req.body.token;
+        const { password } = req.body;
+        await passwordResetService.resetPassword(token, password);
+        return res.json({ status: "success", message: "Password updated" });
+    } catch (error) {
+        return res.status(400).json({ status: "error", message: error.message });
+    }
 });
 
 export default router;

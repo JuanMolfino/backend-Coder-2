@@ -1,342 +1,115 @@
-# Curso Programacion Backend - Proyecto Final
+## Curso Programación Backend - Proyecto Final
 
-Sistema de ecommerce con Node.js, Express, MongoDB y Socket.io.
+Servidor de ecommerce desarrollado con **Node.js**, **Express** y **MongoDB**, con autenticación JWT (cookie), manejo de roles, recuperación de contraseña por correo y lógica de compra con generación de tickets.
 
-## Requisitos Previos
+## Requisitos
 
-- Node.js (v14 o superior)
-- MongoDB local (ejecutándose en localhost:27017)
-- npm o yarn
+- Node.js 18+ (recomendado)
+- MongoDB (local o remoto)
+- npm
 
-## Instalacion
-
-1. Clonar el repositorio o descargar los archivos
-2. Navegar a la carpeta del proyecto
-3. Instalar las dependencias:
+## Instalación
 
 ```bash
 npm install
 ```
 
-## Levantar el Proyecto en Local
+## Configuración (.env)
 
-Para iniciar el servidor en modo desarrollo:
+El proyecto usa variables de entorno. Partí de `.env.example` y creá tu `.env`.
+
+Variables principales:
+
+- `PORT`: puerto del servidor (default 8080)
+- `MONGO_URI`: string de conexión a MongoDB
+- `JWT_SECRET`: secreto para firmar JWT
+- `APP_BASE_URL`: URL base para armar el link del mail de recuperación (ej. `http://localhost:8080`)
+
+Mailing (opcional, para recuperación de contraseña):
+
+- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM`
+
+Si las variables de mail **no están** configuradas, el endpoint de recuperación responde OK igual (respuesta neutra) pero **no envía** correo.
+
+## Ejecución
+
+Modo desarrollo (nodemon):
 
 ```bash
 npm start
 ```
 
-El servidor se iniciará en:
-```
-http://localhost:8080
-```
+Servidor:
+- `http://localhost:8080`
 
-La base de datos se conectará automáticamente a:
-```
-mongodb://127.0.0.1:27017/entrega-final
-```
+## Arquitectura (resumen)
 
-## Estructura del Proyecto
+Se incorporó una arquitectura más profesional por capas:
 
-```
-.
-├── public/
-│   ├── css/
-│   │   └── index.css
-│   └── js/
-│       ├── index.js
-│       └── ecommerce.js
-├── src/
-│   ├── app.js
-│   ├── websocket.js
-│   ├── dao/
-│   │   ├── productDBManager.js
-│   │   ├── productFSManager.js
-│   │   ├── cartDBManager.js
-│   │   ├── cartFSManager.js
-│   │   └── models/
-│   │       ├── productModel.js
-│   │       └── cartModel.js
-│   ├── routes/
-│   │   ├── productRouter.js
-│   │   ├── cartRouter.js
-│   │   └── viewsRouter.js
-│   ├── utils/
-│   │   ├── constantsUtil.js
-│   │   └── multerUtil.js
-│   └── views/
-│       ├── index.handlebars
-│       ├── cart.handlebars
-│       ├── realTimeProducts.handlebars
-│       ├── notFound.handlebars
-│       └── layouts/
-│           └── main.handlebars
-└── package.json
-```
+- **DAO**: acceso a datos (Mongo/Mongoose) en `src/dao/mongo/`
+- **Repository**: abstracción para lógica de negocio en `src/repositories/`
+- **Services**: casos de uso (reset password, compra) en `src/services/`
+- **DTOs**: salida controlada de datos (ej. `/current`) en `src/dtos/`
+- **Middlewares**: autorización por roles en `src/middlewares/`
 
-## API Endpoints
+## Autenticación y roles
 
-### Productos
+- Login genera un JWT y lo setea en cookie `jwt` (HTTPOnly).
+- Roles soportados: `user` y `admin`.
 
-#### GET /api/products
-Obtiene la lista de todos los productos con paginacion.
+Reglas:
 
-Query parameters:
-- `limit`: cantidad de productos por página (default: 10)
-- `page`: número de página (default: 1)
-- `sort`: ordenamiento (asc o desc)
-- `query`: búsqueda por filtros
+- **Solo `admin`** puede crear/actualizar/eliminar productos:
+  - `POST /api/products`
+  - `PUT /api/products/:pid`
+  - `DELETE /api/products/:pid`
+- **Solo `user`** puede agregar productos al carrito:
+  - `POST /api/carts/:cid/product/:pid`
 
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "docs": [...],
-    "totalPages": 5,
-    "prevPage": null,
-    "nextPage": 2,
-    "page": 1,
-    "hasPrevPage": false,
-    "hasNextPage": true,
-    "prevLink": null,
-    "nextLink": "/api/products?page=2"
-  }
-}
-```
+## Endpoints principales
 
-#### GET /api/products/:pid
-Obtiene un producto específico por su ID.
+### Sesiones
 
-Parámetros:
-- `pid`: ID del producto (requerido)
+- `POST /api/sessions/register`: registra usuario (crea carrito asociado)
+- `POST /api/sessions/login`: login (cookie `jwt`)
+- `GET /api/sessions/current`: devuelve **DTO** del usuario (sin datos sensibles)
 
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "_id": "...",
-    "title": "Producto",
-    "description": "Descripción",
-    "price": 100,
-    "thumbnails": [...],
-    "code": "ABC123",
-    "stock": 50,
-    "category": "categoría",
-    "status": true
-  }
-}
-```
+### Recuperación de contraseña
 
-#### POST /api/products
-Crea un nuevo producto. Soporta carga de imágenes mediante multipart/form-data.
-
-Body (multipart/form-data):
-```
-title: string (requerido)
-description: string (requerido)
-price: number (requerido)
-thumbnails: files (máximo 3 archivos)
-code: string (requerido)
-stock: number (requerido)
-category: string (requerido)
-status: boolean (default: true)
-```
-
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "_id": "...",
-    "title": "Nuevo Producto",
-    ...
-  }
-}
-```
-
-#### PUT /api/products/:pid
-Actualiza un producto existente. Soporta carga de imágenes.
-
-Parámetros:
-- `pid`: ID del producto (requerido)
-
-Body (multipart/form-data): mismos campos que POST
-
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "_id": "...",
-    "title": "Producto Actualizado",
-    ...
-  }
-}
-```
-
-#### DELETE /api/products/:pid
-Elimina un producto.
-
-Parámetros:
-- `pid`: ID del producto (requerido)
-
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "deleteCount": 1
-  }
-}
-```
+- `POST /api/sessions/forgot-password`
+  - Body: `{ "email": "..." }`
+  - Envía correo con link (si mailing está configurado)
+  - Link expira en **1 hora**
+- `POST /api/sessions/reset-password?token=...`
+  - Body: `{ "password": "..." }`
+  - Valida expiración del token
+  - Evita restablecer a la **misma contraseña** (actual e historial reciente)
 
 ### Carritos
 
-#### GET /api/carts/:cid
-Obtiene los productos de un carrito específico.
+- `POST /api/carts`: crea un carrito
+- `GET /api/carts/:cid`: obtiene carrito con productos
+- `POST /api/carts/:cid/product/:pid`: agrega producto (solo `user`)
+- `POST /api/carts/:cid/purchase`: realiza compra y genera ticket (solo `user`)
 
-Parámetros:
-- `cid`: ID del carrito (requerido)
+## Compra y ticket
 
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "_id": "...",
-    "products": [
-      {
-        "product": {...},
-        "quantity": 2
-      }
-    ]
-  }
-}
-```
+La compra:
 
-#### POST /api/carts
-Crea un nuevo carrito vacío.
+- Verifica stock por producto
+- Descuenta stock cuando alcanza
+- Genera un **ticket** con:
+  - `code`, `purchase_datetime`, `amount`, `purchaser`, `products`
+  - `status`: `complete` o `incomplete`
+- Si hay productos sin stock, la compra queda **incompleta** y el carrito conserva solo lo no comprado
 
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "_id": "...",
-    "products": []
-  }
-}
-```
+## Tecnologías
 
-#### POST /api/carts/:cid/product/:pid
-Agrega un producto al carrito.
-
-Parámetros:
-- `cid`: ID del carrito (requerido)
-- `pid`: ID del producto (requerido)
-
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "_id": "...",
-    "products": [...]
-  }
-}
-```
-
-#### DELETE /api/carts/:cid/product/:pid
-Elimina un producto del carrito.
-
-Parámetros:
-- `cid`: ID del carrito (requerido)
-- `pid`: ID del producto (requerido)
-
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "deleteCount": 1
-  }
-}
-```
-
-#### PUT /api/carts/:cid
-Actualiza todos los productos del carrito.
-
-Parámetros:
-- `cid`: ID del carrito (requerido)
-
-Body (JSON):
-```json
-{
-  "products": [
-    {
-      "product": "id_producto",
-      "quantity": 2
-    }
-  ]
-}
-```
-
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "_id": "...",
-    "products": [...]
-  }
-}
-```
-
-#### PUT /api/carts/:cid/product/:pid
-Actualiza la cantidad de un producto en el carrito.
-
-Parámetros:
-- `cid`: ID del carrito (requerido)
-- `pid`: ID del producto (requerido)
-
-Body (JSON):
-```json
-{
-  "quantity": 5
-}
-```
-
-Respuesta:
-```json
-{
-  "status": "success",
-  "payload": {
-    "_id": "...",
-    "products": [...]
-  }
-}
-```
-
-## Vistas
-
-### GET /products
-Página principal con listado de productos. Incluye paginación y búsqueda.
-
-### GET /realtimeproducts
-Página de productos en tiempo real. Utiliza WebSocket para actualizaciones.
-
-### GET /cart/:cid
-Página del carrito. Muestra los productos agregados al carrito.
-
-## Tecnologías Utilizadas
-
-- Express.js: framework web
-- MongoDB: base de datos
-- Mongoose: ODM para MongoDB
-- Handlebars: motor de plantillas
-- Socket.io: comunicación en tiempo real
-- Multer: carga de archivos
-- Nodemon: reinicio automático en desarrollo
+- Express
+- MongoDB + Mongoose
+- Passport (JWT)
+- Nodemailer (mailing)
+- Handlebars
+- Socket.io
+- Multer
 

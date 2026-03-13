@@ -3,6 +3,7 @@ import handlebars from 'express-handlebars';
 import {Server} from 'socket.io';
 import mongoose from 'mongoose';
 import cookieParser from 'cookie-parser';
+import { env } from './config/env.js';
 
 import productRouter from './routes/productRouter.js';
 import cartRouter from './routes/cartRouter.js';
@@ -16,8 +17,7 @@ import websocket from './websocket.js';
 
 const app = express();
 
-const uri = 'mongodb://127.0.0.1:27017/entrega-final';
-mongoose.connect(uri);
+mongoose.connect(env.mongoUri);
 
 //Handlebars Config
 app.engine('handlebars', handlebars.engine({
@@ -44,9 +44,8 @@ app.use('/api/sessions', sessionsRouter);
 app.use('/api/users', usersRouter);
 app.use('/', viewsRouter);
 
-const PORT = 8080;
-const httpServer = app.listen(PORT, () => {
-    console.log(`Start server in PORT ${PORT}`);
+const httpServer = app.listen(env.port, () => {
+    console.log(`Start server in PORT ${env.port}`);
 });
 
 const io = new Server(httpServer);
