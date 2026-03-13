@@ -39,18 +39,53 @@ Modo desarrollo (nodemon):
 npm start
 ```
 
-Servidor:
-- `http://localhost:8080`
+El servidor se iniciará en:
+```
+http://localhost:8080
+```
 
-## Arquitectura (resumen)
+La base de datos se conectará automáticamente a:
+```
+mongodb://127.0.0.1:27017/entrega-final
+```
 
-Se incorporó una arquitectura más profesional por capas:
+## Estructura del Proyecto
 
-- **DAO**: acceso a datos (Mongo/Mongoose) en `src/dao/mongo/`
-- **Repository**: abstracción para lógica de negocio en `src/repositories/`
-- **Services**: casos de uso (reset password, compra) en `src/services/`
-- **DTOs**: salida controlada de datos (ej. `/current`) en `src/dtos/`
-- **Middlewares**: autorización por roles en `src/middlewares/`
+```
+.
+├── public/
+│   ├── css/
+│   │   └── index.css
+│   └── js/
+│       ├── index.js
+│       └── ecommerce.js
+├── src/
+│   ├── app.js
+│   ├── websocket.js
+│   ├── dao/
+│   │   ├── productDBManager.js
+│   │   ├── productFSManager.js
+│   │   ├── cartDBManager.js
+│   │   ├── cartFSManager.js
+│   │   └── models/
+│   │       ├── productModel.js
+│   │       └── cartModel.js
+│   ├── routes/
+│   │   ├── productRouter.js
+│   │   ├── cartRouter.js
+│   │   └── viewsRouter.js
+│   ├── utils/
+│   │   ├── constantsUtil.js
+│   │   └── multerUtil.js
+│   └── views/
+│       ├── index.handlebars
+│       ├── cart.handlebars
+│       ├── realTimeProducts.handlebars
+│       ├── notFound.handlebars
+│       └── layouts/
+│           └── main.handlebars
+└── package.json
+```
 
 ## Autenticación y roles
 
